@@ -1,0 +1,56 @@
+name: Aggiornamento Dati & Deploy
+
+on:
+  schedule:
+    - cron: '0 8 * * *' # Ogni giorno alle 08:00 UTC
+  workflow_dispatch: # Permette l'esecuzione manuale da GitHub
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Aggiorna Dati Dighe
+        run: |
+          # Scarica e accoda i dati aggiornati nel CSV utilizzato dall'app
+          python scripts/download_dam_levels.py --output dighe_project/public/data/dam_levels.csv
+        
+      - name: Commit nuovi dati (se presenti)
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add dighe_project/public/data/dam_levels.csv
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Aggiornamento giornaliero dati dighe [skip ci]" && git push)
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: dighe_project/package-lock.json
+          
+      - name: Install dependencies
+        run: cd dighe_project && npm ci
+        
+      - name: Build Angular Project
+        run: cd dighe_project && npm run build:ghpages
+        
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dighe_project/dist/dighe_project/browser
