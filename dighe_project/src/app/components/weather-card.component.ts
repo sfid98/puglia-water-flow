@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WeatherService, WeatherInfo } from '../services/weather.service';
 
@@ -72,12 +72,13 @@ export class WeatherCardComponent implements OnInit {
   loading = true;
   weather: WeatherInfo | null = null;
 
-  constructor(private weatherService: WeatherService) {}
+  constructor(private weatherService: WeatherService, private cdr: ChangeDetectorRef) { }
 
   async ngOnInit() {
     if (this.lat !== undefined && this.lng !== undefined) {
       this.weather = await this.weatherService.getWeather(this.lat, this.lng);
       this.loading = false;
+      this.cdr.detectChanges();
     }
   }
 }

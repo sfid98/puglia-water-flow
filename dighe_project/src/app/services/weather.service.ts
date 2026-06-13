@@ -13,7 +13,7 @@ export interface WeatherInfo {
   providedIn: 'root'
 })
 export class WeatherService {
-  
+
   // Mappa i codici WMO in descrizione in italiano ed emoji/classe icona
   private getWeatherDescription(code: number): { desc: string; icon: string } {
     if (code === 0) return { desc: 'Soleggiato', icon: '☀️' };
