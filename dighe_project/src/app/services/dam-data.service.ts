@@ -77,6 +77,7 @@ export interface HistoricalStats {
 })
 export class DamDataService {
   readonly records = signal<DamRecord[]>([]);
+  readonly precipitation = signal<Record<string, Record<string, number>>>({});
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
 
@@ -87,22 +88,57 @@ export class DamDataService {
   private async loadData() {
     try {
       this.loading.set(true);
-      const response = await fetch('data/dam_levels.csv');
-      if (!response.ok) {
+      
+      // Esegue le fetch in parallelo
+      const [levelsResponse, precipResponse] = await Promise.all([
+        fetch('data/dam_levels.csv'),
+        fetch('data/precipitation_data.csv').catch(() => null)
+      ]);
+
+      if (!levelsResponse.ok) {
         throw new Error('Impossibile caricare i dati delle dighe');
       }
-      const csvText = await response.text();
+      const csvText = await levelsResponse.text();
       const parsed = this.parseCSV(csvText);
 
       parsed.sort((a, b) => a.date.localeCompare(b.date));
 
       this.records.set(parsed);
+
+      if (precipResponse && precipResponse.ok) {
+        const precipText = await precipResponse.text();
+        this.precipitation.set(this.parsePrecipitationCSV(precipText));
+      }
+
       this.loading.set(false);
     } catch (err: any) {
       console.error(err);
       this.error.set(err.message || 'Errore imprevisto durante il caricamento');
       this.loading.set(false);
     }
+  }
+
+  private parsePrecipitationCSV(csvText: string): Record<string, Record<string, number>> {
+    const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    const result: Record<string, Record<string, number>> = {};
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const tokens = line.split(',');
+      if (tokens.length < 3) continue;
+
+      const date = tokens[0];
+      const dam = tokens[1];
+      const precip = parseFloat(tokens[2]);
+
+      if (isNaN(precip)) continue;
+
+      if (!result[dam]) result[dam] = {};
+      result[dam][date] = precip;
+    }
+    return result;
   }
 
   private parseCSV(csvText: string): DamRecord[] {

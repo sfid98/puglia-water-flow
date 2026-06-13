@@ -1,6 +1,6 @@
-import { Component, ElementRef, ViewChild, Input, Output, EventEmitter, OnInit, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
+import { Component, ElementRef, ViewChild, Input, Output, EventEmitter, OnInit, OnChanges, OnDestroy, SimpleChanges, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { DamRecord } from '../services/dam-data.service';
+import { DamRecord, DamDataService } from '../services/dam-data.service';
 import { Chart, registerables } from 'chart.js';
 
 Chart.register(...registerables);
@@ -106,16 +106,18 @@ Chart.register(...registerables);
 })
 export class ChartComponent implements OnInit, OnChanges, OnDestroy {
   @ViewChild('chartCanvas', { static: true }) chartCanvas!: ElementRef<HTMLCanvasElement>;
-  
+
   @Input() records: DamRecord[] = [];
   @Input() damName: string | null = null;
-  @Input() customWindow: {start: string, end: string} | null = null;
+  @Input() customWindow: { start: string, end: string } | null = null;
   @Output() customWindowCleared = new EventEmitter<void>();
+
+  damService = inject(DamDataService);
 
   selectedMetric: 'capacity' | 'level' = 'capacity';
   selectedWindow: '30d' | '90d' | '1y' | 'all' | 'custom' = '90d';
   filteredRecords: DamRecord[] = [];
-  
+
   readonly timeWindows = [
     { id: '30d' as const, label: '30g' },
     { id: '90d' as const, label: '90g' },
@@ -307,6 +309,25 @@ export class ChartComponent implements OnInit, OnChanges, OnDestroy {
     const data = this.filteredRecords.map(r => isLevel ? r.level_m : r.capacity_m3);
     const metricLabel = isLevel ? 'Livello (m)' : 'Capacità (m³)';
 
+    // Estrai dati precipitazioni
+    const precipitations = this.filteredRecords.map(r => {
+      const precipMap = this.damService.precipitation();
+      if (this.damName) {
+        return precipMap[this.damName]?.[r.date] || 0;
+      } else {
+        // Media per l'aggregato
+        let sum = 0;
+        let count = 0;
+        for (const dam of Object.keys(precipMap)) {
+          if (precipMap[dam]?.[r.date] !== undefined) {
+            sum += precipMap[dam][r.date];
+            count++;
+          }
+        }
+        return count > 0 ? sum / count : 0;
+      }
+    });
+
     const lineGradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
     lineGradient.addColorStop(0, '#06b6d4'); // Cyan
     lineGradient.addColorStop(1, '#6366f1'); // Indigo
@@ -319,20 +340,37 @@ export class ChartComponent implements OnInit, OnChanges, OnDestroy {
       type: 'line',
       data: {
         labels: labels,
-        datasets: [{
-          label: metricLabel,
-          data: data,
-          borderColor: lineGradient,
-          borderWidth: 2.5,
-          backgroundColor: fillGradient,
-          fill: true,
-          tension: 0.3,
-          pointRadius: this.filteredRecords.length > 100 ? 0 : 2,
-          pointHoverRadius: 6,
-          pointBackgroundColor: '#22d3ee',
-          pointBorderColor: '#ffffff',
-          pointBorderWidth: 1.5
-        }]
+        datasets: [
+          {
+            label: 'Pioggia (mm)',
+            data: precipitations,
+            type: 'bar' as const,
+            yAxisID: 'yPrecip',
+            backgroundColor: 'rgba(56, 189, 248, 0.3)',
+            hoverBackgroundColor: 'rgba(56, 189, 248, 0.8)',
+            borderWidth: 0,
+            borderRadius: 2,
+            barPercentage: 1.0,
+            categoryPercentage: 1.0,
+            order: 2 // Dietro
+          },
+          {
+            label: metricLabel,
+            data: data,
+            borderColor: lineGradient,
+            borderWidth: 2.5,
+            backgroundColor: fillGradient,
+            fill: true,
+            tension: 0.3,
+            pointRadius: this.filteredRecords.length > 100 ? 0 : 2,
+            pointHoverRadius: 6,
+            pointBackgroundColor: '#22d3ee',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 1.5,
+            yAxisID: 'y',
+            order: 1 // Davanti
+          }
+        ]
       },
       options: {
         responsive: true,
@@ -353,8 +391,11 @@ export class ChartComponent implements OnInit, OnChanges, OnDestroy {
             displayColors: false,
             callbacks: {
               label: (context) => {
-                let value = context.parsed.y;
-                return ` ${metricLabel}: ${this.formatVal(value ?? 0)}`;
+                let value = context.parsed.y ?? 0;
+                if (context.dataset.yAxisID === 'yPrecip') {
+                  return ` Pioggia: ${value.toFixed(1)} mm`;
+                }
+                return ` ${metricLabel}: ${this.formatVal(value)}`;
               }
             }
           }
@@ -371,6 +412,9 @@ export class ChartComponent implements OnInit, OnChanges, OnDestroy {
             }
           },
           y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
             grid: {
               color: 'rgba(255, 255, 255, 0.05)'
             },
@@ -384,6 +428,19 @@ export class ChartComponent implements OnInit, OnChanges, OnDestroy {
                 if (num >= 1e3) return (num / 1e3).toFixed(0) + 'k m³';
                 return num;
               }
+            }
+          },
+          yPrecip: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            grid: { display: false },
+            min: 0,
+            suggestedMax: 150, // Comprime le barre in basso
+            ticks: {
+              color: 'rgba(56, 189, 248, 0.6)',
+              font: { family: 'Inter', size: 10 },
+              callback: (value) => value + ' mm'
             }
           }
         }
