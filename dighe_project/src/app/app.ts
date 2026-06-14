@@ -92,5 +92,16 @@ export class App {
     if (parts.length !== 3) return dateStr;
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
   }
+
+  formatDateTime(isoStr: string | null): string {
+    if (!isoStr) return 'N/D';
+    const d = new Date(isoStr);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} alle ${h}:${m}`;
+  }
 }
 

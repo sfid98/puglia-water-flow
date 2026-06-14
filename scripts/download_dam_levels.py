@@ -27,7 +27,6 @@ CSV_FIELDS = [
     "dam",
     "level_m",
     "capacity_m3",
-    "api_date",
     "level_raw",
     "capacity_raw",
 ]
@@ -105,17 +104,20 @@ def parse_int_it(value: str | None) -> int | None:
     return int(value.replace(".", ""))
 
 
-def read_existing_dates(path: Path) -> set[str]:
+def get_latest_date_in_csv(path: Path) -> date | None:
     if not path.exists():
-        return set()
+        return None
 
-    dates: set[str] = set()
+    latest: str | None = None
     with path.open("r", newline="", encoding="utf-8") as csv_file:
         reader = csv.DictReader(csv_file)
         for row in reader:
             if row.get("date"):
-                dates.add(row["date"])
-    return dates
+                if latest is None or row["date"] > latest:
+                    latest = row["date"]
+    if latest:
+        return datetime.strptime(latest, "%Y-%m-%d").date()
+    return None
 
 
 def fetch_day(day: date, timeout: float, max_retries: int) -> dict[str, Any]:
@@ -167,6 +169,25 @@ def backoff_seconds(attempt: int) -> float:
 
 def normalize_rows(day: date, payload: dict[str, Any]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    
+    # Extract the actual date from the API response
+    api_date_str = None
+    for values in payload.values():
+        if isinstance(values, dict) and values.get("date"):
+            api_date_str = values.get("date")
+            break
+            
+    if api_date_str:
+        try:
+            api_date = datetime.strptime(api_date_str, "%d/%m/%Y").date()
+            if api_date != day:
+                print(f"[{day.isoformat()}] Scarto perche' l'API restituisce dati del {api_date_str}", file=sys.stderr)
+                return []
+        except ValueError:
+            api_date = day
+    else:
+        api_date = day
+
     for dam_name, values in sorted(payload.items()):
         if not isinstance(values, dict):
             continue
@@ -175,11 +196,10 @@ def normalize_rows(day: date, payload: dict[str, Any]) -> list[dict[str, Any]]:
         capacity_raw = values.get("capacity")
         rows.append(
             {
-                "date": day.isoformat(),
+                "date": api_date.isoformat(),
                 "dam": dam_name,
                 "level_m": parse_decimal_it(level_raw),
                 "capacity_m3": parse_int_it(capacity_raw),
-                "api_date": values.get("date"),
                 "level_raw": level_raw,
                 "capacity_raw": capacity_raw,
             }
@@ -203,13 +223,20 @@ def main() -> int:
     args = parse_args()
     start = parse_iso_date(args.start_date, "--start-date")
     end = parse_iso_date(args.end_date, "--end-date")
-    if start > end:
-        raise SystemExit("--start-date non puo' essere successiva a --end-date")
 
     output_path = Path(args.output)
     if args.overwrite and output_path.exists():
         output_path.unlink()
-    existing_dates = read_existing_dates(output_path)
+        
+    latest_saved = get_latest_date_in_csv(output_path)
+    if latest_saved and not args.overwrite:
+        new_start = latest_saved + timedelta(days=1)
+        if new_start > start:
+            start = new_start
+
+    if start > end:
+        print("Tutte le date fino a --end-date sono gia' state scaricate.")
+        return 0
 
     total_days = (end - start).days + 1
     downloaded = 0
@@ -217,10 +244,6 @@ def main() -> int:
 
     for index, day in enumerate(date_range(start, end), start=1):
         day_key = day.isoformat()
-        if day_key in existing_dates:
-            skipped += 1
-            print(f"[{index}/{total_days}] {day_key}: gia' presente, salto")
-            continue
 
         print(f"[{index}/{total_days}] {day_key}: scarico")
         try:
@@ -239,9 +262,12 @@ def main() -> int:
             )
             return 1
 
-        append_rows(output_path, rows)
-        downloaded += 1
-        print(f"[{index}/{total_days}] {day_key}: salvate {len(rows)} righe")
+        if len(rows) == 0:
+            skipped += 1
+        else:
+            append_rows(output_path, rows)
+            downloaded += 1
+            print(f"[{index}/{total_days}] {day_key}: salvate {len(rows)} righe")
 
         if args.delay > 0 and day != end:
             time.sleep(args.delay)

@@ -78,6 +78,7 @@ export interface HistoricalStats {
 export class DamDataService {
   readonly records = signal<DamRecord[]>([]);
   readonly precipitation = signal<Record<string, Record<string, number>>>({});
+  readonly lastCheckDate = signal<string | null>(null);
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
 
@@ -90,9 +91,10 @@ export class DamDataService {
       this.loading.set(true);
       
       // Esegue le fetch in parallelo
-      const [levelsResponse, precipResponse] = await Promise.all([
+      const [levelsResponse, precipResponse, updateInfoResponse] = await Promise.all([
         fetch('data/dam_levels.csv'),
-        fetch('data/precipitation_data.csv').catch(() => null)
+        fetch('data/precipitation_data.csv').catch(() => null),
+        fetch('data/update_info.json').catch(() => null)
       ]);
 
       if (!levelsResponse.ok) {
@@ -108,6 +110,17 @@ export class DamDataService {
       if (precipResponse && precipResponse.ok) {
         const precipText = await precipResponse.text();
         this.precipitation.set(this.parsePrecipitationCSV(precipText));
+      }
+
+      if (updateInfoResponse && updateInfoResponse.ok) {
+        try {
+          const updateInfo = await updateInfoResponse.json();
+          if (updateInfo && updateInfo.lastCheck) {
+            this.lastCheckDate.set(updateInfo.lastCheck);
+          }
+        } catch (e) {
+          console.warn('Impossibile fare il parse di update_info.json', e);
+        }
       }
 
       this.loading.set(false);
