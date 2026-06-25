@@ -123,7 +123,11 @@ def get_latest_date_in_csv(path: Path) -> date | None:
 def fetch_day(day: date, timeout: float, max_retries: int) -> dict[str, Any]:
     query = urlencode({"date": day.isoformat()})
     url = f"{API_URL}?{query}"
-    request = Request(url, headers={"User-Agent": "dighe-dashboard-dataset/1.0"})
+    request = Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7"
+    })
 
     for attempt in range(max_retries + 1):
         try:
@@ -132,7 +136,7 @@ def fetch_day(day: date, timeout: float, max_retries: int) -> dict[str, Any]:
                 return json.loads(response.read().decode(charset))
         except HTTPError as exc:
             retry_after = exc.headers.get("Retry-After")
-            should_retry = exc.code == 429 or 500 <= exc.code < 600
+            should_retry = exc.code in (403, 429) or 500 <= exc.code < 600
             if not should_retry or attempt >= max_retries:
                 raise
             wait_seconds = parse_retry_after(retry_after) or backoff_seconds(attempt)
