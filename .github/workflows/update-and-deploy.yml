@@ -31,16 +31,7 @@ jobs:
           # Scarica lo storico delle precipitazioni
           #python scripts/download_precipitation.py --output dighe_project/public/data/precipitation_data.csv
         
-      - name: Aggiorna Data Controllo
-        run: |
-          echo "{\"lastCheck\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"}" > dighe_project/public/data/update_info.json
 
-      - name: Commit nuovi dati (se presenti)
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add dighe_project/public/data/dam_levels.csv dighe_project/public/data/precipitation_data.csv dighe_project/public/data/update_info.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Aggiornamento giornaliero dati dighe e precipitazioni [skip ci]" && git push)
           
       - name: Setup Node.js
         uses: actions/setup-node@v4
