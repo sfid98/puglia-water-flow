@@ -1,7 +1,9 @@
 import urllib.request
+import urllib.error
 import json
 import csv
 import argparse
+import time
 from datetime import datetime
 
 # Mappa dei nomi delle dighe alle rispettive coordinate, coerente con Angular
@@ -26,9 +28,6 @@ def download_historical_precipitation(output_file):
     print(f"Scarico i dati da: {url}")
     
     req = urllib.request.Request(url, headers={'User-Agent': 'PugliaWaterFlow-GitHubAction/1.0 (github.com/sfid98/puglia-water-flow)'})
-    
-    import time
-    import urllib.error
     
     max_retries = 3
     data = None
