@@ -27,9 +27,9 @@ jobs:
       - name: Aggiorna Dati Dighe e Precipitazioni
         run: |
           # Scarica e accoda i dati aggiornati nel CSV utilizzato dall'app
-          #python scripts/download_dam_levels.py --output dighe_project/public/data/dam_levels.csv
+          python scripts/download_dam_levels.py --output dighe_project/public/data/dam_levels.csv
           # Scarica lo storico delle precipitazioni
-          #python scripts/download_precipitation.py --output dighe_project/public/data/precipitation_data.csv
+          python scripts/download_precipitation.py --output dighe_project/public/data/precipitation_data.csv
         
       - name: Aggiorna Data Controllo
         run: |

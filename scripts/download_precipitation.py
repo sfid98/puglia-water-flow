@@ -25,12 +25,31 @@ def download_historical_precipitation(output_file):
     
     print(f"Scarico i dati da: {url}")
     
-    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-    try:
-        with urllib.request.urlopen(req) as response:
-            data = json.loads(response.read().decode())
-    except Exception as e:
-        print(f"Errore nel download dei dati meteo: {e}")
+    req = urllib.request.Request(url, headers={'User-Agent': 'PugliaWaterFlow-GitHubAction/1.0 (github.com/sfid98/puglia-water-flow)'})
+    
+    import time
+    import urllib.error
+    
+    max_retries = 3
+    data = None
+    for attempt in range(max_retries):
+        try:
+            with urllib.request.urlopen(req, timeout=15) as response:
+                data = json.loads(response.read().decode())
+            break # Success, exit retry loop
+        except urllib.error.HTTPError as e:
+            print(f"Tentativo {attempt+1}/{max_retries} fallito con errore HTTP: {e.code} {e.reason}")
+            if e.code == 403 or e.code == 429:
+                # Rate limit or block, wait a bit longer
+                time.sleep(2 ** attempt + 2)
+            else:
+                time.sleep(1)
+        except Exception as e:
+            print(f"Tentativo {attempt+1}/{max_retries} fallito: {e}")
+            time.sleep(1)
+            
+    if data is None:
+        print("Errore critico: Impossibile scaricare i dati meteo dopo vari tentativi.")
         return
         
     if not isinstance(data, list):
