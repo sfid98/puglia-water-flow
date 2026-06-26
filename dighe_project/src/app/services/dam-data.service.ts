@@ -90,11 +90,14 @@ export class DamDataService {
     try {
       this.loading.set(true);
       
+      // Cache-busting: aggiunge un timestamp per evitare dati cachati da GitHub Pages CDN
+      const cacheBuster = `v=${Date.now()}`;
+
       // Esegue le fetch in parallelo
       const [levelsResponse, precipResponse, updateInfoResponse] = await Promise.all([
-        fetch('data/dam_levels.csv'),
-        fetch('data/precipitation_data.csv').catch(() => null),
-        fetch('data/update_info.json').catch(() => null)
+        fetch(`data/dam_levels.csv?${cacheBuster}`, { cache: 'no-store' }),
+        fetch(`data/precipitation_data.csv?${cacheBuster}`, { cache: 'no-store' }).catch(() => null),
+        fetch(`data/update_info.json?${cacheBuster}`, { cache: 'no-store' }).catch(() => null)
       ]);
 
       if (!levelsResponse.ok) {
