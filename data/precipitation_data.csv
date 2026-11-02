@@ -2860,7 +2860,8 @@ date,dam,precipitation_mm
 2026-10-29,Occhito,0.0
 2026-10-30,Occhito,2.5
 2026-10-31,Occhito,2.9
-2026-11-01,Occhito,2.5
+2026-11-01,Occhito,2.1
+2026-11-02,Occhito,41.8
 2019-01-01,Capaccio,0.0
 2019-01-02,Capaccio,6.5
 2019-01-03,Capaccio,1.4
@@ -5722,7 +5723,8 @@ date,dam,precipitation_mm
 2026-10-29,Capaccio,5.2
 2026-10-30,Capaccio,13.9
 2026-10-31,Capaccio,0.6
-2026-11-01,Capaccio,4.5
+2026-11-01,Capaccio,6.6
+2026-11-02,Capaccio,38.2
 2019-01-01,Capacciotti,1.3
 2019-01-02,Capacciotti,10.1
 2019-01-03,Capacciotti,5.5
@@ -8584,7 +8586,8 @@ date,dam,precipitation_mm
 2026-10-29,Capacciotti,0.2
 2026-10-30,Capacciotti,6.7
 2026-10-31,Capacciotti,7.9
-2026-11-01,Capacciotti,1.8
+2026-11-01,Capacciotti,2.3
+2026-11-02,Capacciotti,65.2
 2019-01-01,Osento,0.2
 2019-01-02,Osento,8.8
 2019-01-03,Osento,2.9
@@ -11446,4 +11449,5 @@ date,dam,precipitation_mm
 2026-10-29,Osento,6.2
 2026-10-30,Osento,7.5
 2026-10-31,Osento,2.3
-2026-11-01,Osento,3.6
+2026-11-01,Osento,6.9
+2026-11-02,Osento,32.5
